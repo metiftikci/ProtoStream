@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ProtoStream.Example.Client</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ProtoStream.Example.Contracts\ProtoStream.Example.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ProtoStream\ProtoStream.csproj" />
+  </ItemGroup>
+</Project>
