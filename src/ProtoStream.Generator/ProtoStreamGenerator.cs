@@ -129,6 +129,7 @@ namespace ProtoStream.Generator
             sb.AppendLine("using System.Text.Json;");
             sb.AppendLine("using System.Threading;");
             sb.AppendLine("using System.Threading.Tasks;");
+            sb.AppendLine("using Microsoft.Extensions.Logging;");
             sb.AppendLine("using ProtoStream;");
             if (!string.IsNullOrEmpty(service.Namespace))
                 sb.AppendLine($"using {service.Namespace};");
@@ -140,7 +141,7 @@ namespace ProtoStream.Generator
             sb.AppendLine($"    public class {clientName} : ProtoStreamClient");
             sb.AppendLine("    {");
 
-            sb.AppendLine($"        public {clientName}(IWebSocketConnection connection) : base(connection)");
+            sb.AppendLine($"        public {clientName}(IWebSocketConnection connection, ILogger<{clientName}>? logger = null) : base(connection, logger)");
             sb.AppendLine("        {");
             foreach (var evt in service.Events)
                 sb.AppendLine($"            SubscribeToEvent<{evt.EventType}>(\"{evt.MethodName}\", evt => {evt.MethodName}?.Invoke(evt));");
@@ -176,6 +177,7 @@ namespace ProtoStream.Generator
             sb.AppendLine("using System.Text.Json;");
             sb.AppendLine("using System.Threading;");
             sb.AppendLine("using System.Threading.Tasks;");
+            sb.AppendLine("using Microsoft.Extensions.Logging;");
             sb.AppendLine("using ProtoStream;");
             if (!string.IsNullOrEmpty(service.Namespace))
                 sb.AppendLine($"using {service.Namespace};");
@@ -187,10 +189,12 @@ namespace ProtoStream.Generator
             sb.AppendLine($"    public abstract class {handlerName} : IWebSocketHandler");
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly ConnectionContext _context;");
+            sb.AppendLine("        private readonly ILogger _logger;");
             sb.AppendLine();
-            sb.AppendLine($"        protected {handlerName}(ConnectionContext context)");
+            sb.AppendLine($"        protected {handlerName}(ConnectionContext context, ILogger<{handlerName}>? logger = null)");
             sb.AppendLine("        {");
             sb.AppendLine("            _context = context ?? throw new ArgumentNullException(nameof(context));");
+            sb.AppendLine("            _logger = logger ?? NullLogger.Instance;");
             sb.AppendLine("        }");
             sb.AppendLine();
 
@@ -214,8 +218,16 @@ namespace ProtoStream.Generator
 
             sb.AppendLine("        async Task IWebSocketHandler.HandleConnectionAsync(IWebSocketConnection connection, CancellationToken ct)");
             sb.AppendLine("        {");
-            sb.AppendLine($"            var router = new {service.ServiceName}Router(this, connection);");
-            sb.AppendLine("            await router.RunAsync(ct);");
+            sb.AppendLine($"            _logger.LogInformation(\"Client connected\");");
+            sb.AppendLine($"            var router = new {service.ServiceName}Router(this, connection, _logger);");
+            sb.AppendLine("            try");
+            sb.AppendLine("            {");
+            sb.AppendLine("                await router.RunAsync(ct);");
+            sb.AppendLine("            }");
+            sb.AppendLine("            finally");
+            sb.AppendLine("            {");
+            sb.AppendLine($"                _logger.LogInformation(\"Client disconnected\");");
+            sb.AppendLine("            }");
             sb.AppendLine("        }");
 
             sb.AppendLine("    }");
@@ -233,6 +245,7 @@ namespace ProtoStream.Generator
             sb.AppendLine("using System.Text.Json;");
             sb.AppendLine("using System.Threading;");
             sb.AppendLine("using System.Threading.Tasks;");
+            sb.AppendLine("using Microsoft.Extensions.Logging;");
             sb.AppendLine("using ProtoStream;");
             if (!string.IsNullOrEmpty(service.Namespace))
                 sb.AppendLine($"using {service.Namespace};");
@@ -246,12 +259,14 @@ namespace ProtoStream.Generator
             sb.AppendLine($"        private readonly {service.ServiceName}Handler _handler;");
             sb.AppendLine("        private readonly IWebSocketConnection _connection;");
             sb.AppendLine("        private readonly ConnectionContext _context;");
+            sb.AppendLine("        private readonly ILogger _logger;");
             sb.AppendLine();
-            sb.AppendLine($"        public {routerName}({service.ServiceName}Handler handler, IWebSocketConnection connection)");
+            sb.AppendLine($"        public {routerName}({service.ServiceName}Handler handler, IWebSocketConnection connection, ILogger? logger = null)");
             sb.AppendLine("        {");
             sb.AppendLine("            _handler = handler ?? throw new ArgumentNullException(nameof(handler));");
             sb.AppendLine("            _connection = connection ?? throw new ArgumentNullException(nameof(connection));");
-            sb.AppendLine("            _context = new ConnectionContext(connection);");
+            sb.AppendLine("            _context = new ConnectionContext(connection, logger);");
+            sb.AppendLine("            _logger = logger ?? NullLogger.Instance;");
             sb.AppendLine("        }");
             sb.AppendLine();
 
@@ -262,13 +277,24 @@ namespace ProtoStream.Generator
             sb.AppendLine("                while (!ct.IsCancellationRequested)");
             sb.AppendLine("                {");
             sb.AppendLine("                    var message = await _connection.ReceiveAsync(ct);");
+            sb.AppendLine("                    if (message == null) break;");
+            sb.AppendLine();
+            sb.AppendLine("                    _logger.LogTrace(\"Raw message received: {Message}\", message);");
+            sb.AppendLine();
             sb.AppendLine("                    var envelope = MessageEnvelope.FromJson(message);");
-            sb.AppendLine("                    if (envelope == null) continue;");
+            sb.AppendLine("                    if (envelope == null)");
+            sb.AppendLine("                    {");
+            sb.AppendLine("                        _logger.LogWarning(\"Failed to deserialize message: {Message}\", message);");
+            sb.AppendLine("                        continue;");
+            sb.AppendLine("                    }");
             sb.AppendLine();
             sb.AppendLine("                    switch (envelope.Type)");
             sb.AppendLine("                    {");
             sb.AppendLine("                        case MessageType.Command:");
             sb.AppendLine("                            await HandleCommand(envelope, ct);");
+            sb.AppendLine("                            break;");
+            sb.AppendLine("                        default:");
+            sb.AppendLine("                            _logger.LogWarning(\"Received unknown message type '{Type}'\", envelope.Type);");
             sb.AppendLine("                            break;");
             sb.AppendLine("                    }");
             sb.AppendLine("                }");
@@ -279,17 +305,23 @@ namespace ProtoStream.Generator
 
             sb.AppendLine("        private async Task HandleCommand(MessageEnvelope envelope, CancellationToken ct)");
             sb.AppendLine("        {");
+            sb.AppendLine("            _logger.LogDebug(\"Received command '{Method}' with correlation '{CorrelationId}': {Data}\",");
+            sb.AppendLine("                envelope.Method, envelope.CorrelationId, envelope.Data);");
             sb.AppendLine("            switch (envelope.Method)");
             sb.AppendLine("            {");
             foreach (var cmd in service.Commands)
             {
                 sb.AppendLine($"                case \"{cmd.Name}\":");
                 sb.AppendLine($"                    var request_{cmd.Name} = JsonSerializer.Deserialize<{cmd.RequestType}>(envelope.Data!, JsonHelper.Options);");
+                sb.AppendLine($"                    _logger.LogDebug(\"Dispatching command '{cmd.Name}'\");");
                 sb.AppendLine($"                    var response_{cmd.Name} = await _handler.{cmd.Name}(request_{cmd.Name}!, ct);");
                 sb.AppendLine($"                    var responseJson_{cmd.Name} = JsonSerializer.Serialize(response_{cmd.Name}, JsonHelper.Options);");
                 sb.AppendLine($"                    await _context.SendResponseAsync(envelope.CorrelationId!, responseJson_{cmd.Name}, ct);");
                 sb.AppendLine($"                    break;");
             }
+            sb.AppendLine("                default:");
+            sb.AppendLine("                    _logger.LogWarning(\"Received unknown command method '{Method}'\", envelope.Method);");
+            sb.AppendLine("                    break;");
             sb.AppendLine("            }");
             sb.AppendLine("        }");
 

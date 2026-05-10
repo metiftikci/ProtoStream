@@ -9,4 +9,8 @@
     <Title>ProtoStream</Title>
     <Description>Lightweight .NET library for defining real-time WebSocket APIs using C# interfaces and records. Includes attributes, abstractions, and client connections.</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
 </Project>
