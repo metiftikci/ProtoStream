@@ -4,5 +4,9 @@
     <RootNamespace>ProtoStream</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>ProtoStream</PackageId>
+    <Title>ProtoStream</Title>
+    <Description>Lightweight .NET library for defining real-time WebSocket APIs using C# interfaces and records. Includes attributes, abstractions, and client connections.</Description>
   </PropertyGroup>
 </Project>

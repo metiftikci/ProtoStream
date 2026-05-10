@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>ProtoStream</Authors>
+    <Company>ProtoStream</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/metiftikci/ProtoStream</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/metiftikci/ProtoStream.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>websocket;protobuf;source-generator;realtime;rpc</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+</Project>

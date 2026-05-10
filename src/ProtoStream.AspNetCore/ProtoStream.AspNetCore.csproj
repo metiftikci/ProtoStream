@@ -4,6 +4,10 @@
     <RootNamespace>ProtoStream</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>ProtoStream.AspNetCore</PackageId>
+    <Title>ProtoStream.AspNetCore</Title>
+    <Description>ASP.NET Core integration for ProtoStream. Provides endpoint routing extensions to host ProtoStream WebSocket handlers.</Description>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
